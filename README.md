@@ -1,5 +1,5 @@
-# RevenueExpense
-
+# RevenueExpense .Net Maui Hybrid
+<br/>
 <p> you can track your revenue and expense. It is for individual use. It developed .net Maui Hybrid. and wrote with c# code.  sqlite database is used in this application.</p>
 
 ![re01](https://github.com/sibelyildiz2024/RevenueExpense/assets/171625094/323db244-c343-47df-9975-85eca61a5140) 
