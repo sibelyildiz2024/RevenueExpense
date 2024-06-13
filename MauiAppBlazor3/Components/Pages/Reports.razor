@@ -1,0 +1,163 @@
+﻿@page "/reports"
+@using MauiAppBlazor3.Models
+@using MauiAppBlazor3.Services
+@inject IIncomeService IncomeService
+@inject IDebtService DebtService
+@inject IInComeDebtItemService IncomeDebtItemService
+
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<h3>Reports</h3>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group mb-3">
+			<InputDate class="form-control" @bind-Value="@date1"></InputDate>
+			<InputDate class="form-control" @bind-Value="@date2"></InputDate>
+			<button type="button" class="btn btn-link" @onclick="SearchDataAll">
+				Filter
+			</button>
+		</div>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group">
+			<select class="form-select" id="inputDebtSourchList" @onchange="SearchData">
+				<option value="0" selected>Categories</option>
+				@foreach (var item in itemSourceList)
+				{
+					<option value="@item.Id">@item.Name</option>
+				}
+			</select>
+		</div>
+
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="table-responsive">
+			<table class="table table table-striped">
+				<thead>
+					<tr>
+						<th>Category</th>
+						<th>Date</th>
+						<th>Revenue</th>
+						<th>Date</th>
+						<th>Expense</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var item in reports)
+					{
+						<tr>
+							<td>@item.Category</td>
+							<td style="color:#008000;">@item.IncomeDate?.ToShortDateString()</td>
+							<td style="color:#008000; text-align:right;">@item.IncomeAmount</td>
+							<td style="color:#FF0000;">@item.DebtDate?.ToShortDateString()</td>
+							<td style="color:#FF0000; text-align:right;">@item.DebtAmount</td>
+						</tr>
+					}
+				</tbody>
+				<tfoot>
+					<tr>
+						<td></td>
+						<td style="color:#008000; text-align:right;font-weight: bold;">Total</td>
+						<td style="color:#008000; text-align:right;font-weight: bold;">@totalIncome</td>
+						<td style="color:#FF0000; text-align:right;font-weight: bold;">Total</td>
+						<td style="color:#FF0000; text-align:right;font-weight: bold;">@totalDebt</td>
+					</tr>
+					<tr>
+						<td></td>
+						<td></td>
+						<td></td>
+						<td style="font-weight:bold;">Difference</td>
+						<td style="font-weight:bold;text-align:right;">@difference</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+</div>
+
+@code {
+	private DateTime date1 = DateTime.Now.AddDays(-7);
+	private DateTime date2 = DateTime.Now;
+	List<ReportModel> reports = new();
+	decimal totalDebt = 0;
+	decimal totalIncome = 0;
+	decimal difference = 0;
+	private List<IncomeDebtItemModel> itemSourceList = new();
+	int CategoryIdSelected = 0;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await GetReports();
+		itemSourceList = await IncomeDebtItemService.GetAll();
+	}
+
+	private async Task SearchDataAll()
+	{
+		await GetReports();
+	}
+
+	private async Task GetReports()
+	{
+		reports.Clear();
+
+		var incomeData = CategoryIdSelected == 0 ?
+			await IncomeService.GetAllIncomeByDateAsync(date1, date2) :
+			await IncomeService.GetAllIncomeByDateCategoryAsync(date1, date2, CategoryIdSelected);
+
+		var debtData = CategoryIdSelected == 0 ?
+			await DebtService.GetAllDebtByDateAsync(date1, date2) :
+			await DebtService.GetAllDebtByDateCategoryAsync(date1, date2, CategoryIdSelected);
+
+		int id = 1;
+		totalDebt = 0;
+		totalIncome = 0;
+		difference = 0;
+
+		foreach (var item in incomeData)
+		{
+			reports.Add(new ReportModel
+				{
+					Id = id,
+					Category = item.IncomeDebtItemModel == null ? string.Empty : item.IncomeDebtItemModel.Name,
+					CategoryId = item.IncomeDebtItemModel?.Id,
+					IncomeAmount = item.InComeAmount,
+					IncomeDate = item.InComeDate
+				});
+			totalIncome += item.InComeAmount;
+			id++;
+		}
+
+		debtData.ForEach(x =>
+		{
+			reports.Add(new ReportModel
+				{
+					Id = id,
+					Category = x.IncomeDebtItemModel == null ? string.Empty : x.IncomeDebtItemModel.Name,
+					CategoryId = x.IncomeDebtItemModel?.Id,
+					DebtAmount = x.DebtAmount,
+					DebtDate = x.DebtDate
+				});
+			totalDebt += x.DebtAmount;
+			id++;
+		});
+
+		reports = reports.OrderBy(x => x.Category).ToList();
+
+		difference = totalIncome - totalDebt;
+	}
+
+	private async Task SearchData(ChangeEventArgs e)
+	{
+		if (e.Value != null)
+		{
+			CategoryIdSelected = Convert.ToInt32(e.Value);
+			await GetReports();
+		}
+	}
+}

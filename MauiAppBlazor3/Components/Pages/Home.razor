@@ -1,0 +1,250 @@
+﻿@page "/"
+@using MauiAppBlazor3.Models
+@using MauiAppBlazor3.Services
+@inject IDebtService DebtService
+@inject IIncomeService IncomeService
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<select class="form-select" aria-label="Default select example" @onchange="GetDataBarData">
+			<option selected value="@DateTime.Now.Year">@DateTime.Now.Year</option>
+			@{
+				for (int i = 1; i < 3; i++)
+				{
+					var dateTimeYear = DateTime.Now.AddYears(-i).Year;
+					<option value="@dateTimeYear">@dateTimeYear</option>
+				}
+			}
+		</select>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<BarChart @ref="barChart" Class="mb-4" />
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<PieChart @ref="pieChart" Class="mb-5" />
+	</div>
+</div>
+@code {
+	private BarChart barChart = default!;
+	private List<IncomeModel>? incomeList;
+	private List<DebtModel>? debtList;
+	private List<double> incomeAmount = new();
+	private List<double> debtAmount = new();
+
+	private PieChart pieChart = default!;
+	private PieChartOptions pieChartOptions = default!;
+	private ChartData chartDataPieChart = default!;
+	private string[] backgroundColorsPieChart = { "#52BE80", "#FF5733" };
+
+
+
+	private async Task GetPieChart(int year, bool isUpdate)
+	{
+		chartDataPieChart = new ChartData { Labels = GetDefaultDataLabels(), Datasets = await GetDefaultDataSets(year) };
+
+		pieChartOptions = new();
+		pieChartOptions.Responsive = true;
+		pieChartOptions.Plugins.Title.Text = $"{year} - Revenue / Expense";
+		pieChartOptions.Plugins.Title.Display = true;
+
+		if(isUpdate)
+		{
+			await pieChart.UpdateAsync(chartDataPieChart, pieChartOptions);
+		}
+		else
+		{
+			await pieChart.InitializeAsync(chartDataPieChart, pieChartOptions);
+		}
+		
+	}
+
+	private async Task<List<IChartDataset>> GetDefaultDataSets(int year)
+	{
+		var datasets = new List<IChartDataset>();
+
+		datasets.Add(await GetIncomeDebtDataChartDataset(year));
+
+
+		return datasets;
+	}
+
+	private async Task<PieChartDataset> GetIncomeDebtDataChartDataset(int year)
+	{
+
+		return new() { Label = "Revenue/Expense", Data = await GetIncomeDebtData(year), BackgroundColor = GetRandomBackgroundColors() };
+	}
+
+	private async Task<List<double>> GetIncomeDebtData(int year)
+	{
+		var incomeData = await IncomeService.GetAllIncomeByDateAsync(
+			new DateTime(year, 1, 1), 
+			new DateTime(year,12,DateTime.DaysInMonth(year,12)));
+
+		var debtData = await DebtService.GetAllDebtByDateAsync(
+			new DateTime(year, 1, 1),
+			new DateTime(year, 12, DateTime.DaysInMonth(year, 12)));
+
+		var data = new List<double>();
+		data.Add(Convert.ToDouble((from f in incomeData
+											select f.InComeAmount).Sum()));
+
+		data.Add(Convert.ToDouble((from f in debtData
+											select f.DebtAmount).Sum()));
+
+		return data;
+	}
+
+	private List<string> GetRandomBackgroundColors()
+	{
+		var colors = new List<string>();
+		for (var index = 0; index < 2; index++)
+		{
+			colors.Add(backgroundColorsPieChart![index]);
+		}
+
+		return colors;
+	}
+
+	private List<string> GetDefaultDataLabels()
+	{
+		var labels = new List<string>();
+
+		labels.Add("Revenue");
+		labels.Add("Expense");
+
+		return labels;
+	}
+
+
+	/// <summary>
+	/// bar chart
+	/// </summary>
+	/// <param name="firstRender"></param>
+	/// <returns></returns>
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			await RenderBarChartAsync(DateTime.Now.Year, false);
+			await GetPieChart(DateTime.Now.Year,false);
+		}
+
+		await base.OnAfterRenderAsync(firstRender);
+	}
+
+	private async Task RenderBarChartAsync(int year, bool isUpdated)
+	{
+		await GetIncomeTotal(year);
+		await GetDebtTotal(year);
+
+		var data = new ChartData
+			{
+				Labels = new List<string> { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" },
+				Datasets = new List<IChartDataset>()
+				{
+					new BarChartDataset()
+					{
+						Label = "Revenue",
+						Data = incomeAmount,
+						BackgroundColor = new List<string>{ "rgb(0, 127, 0)" },
+						CategoryPercentage = 0.8,
+						BarPercentage = 1,
+					},
+					new BarChartDataset()
+					{
+						Label = "Expense",
+						Data = debtAmount,
+						BackgroundColor = new List<string> { "rgb(255, 0, 0)" },
+						CategoryPercentage = 0.8,
+						BarPercentage = 1,
+					}
+				}
+			};
+
+		var options = new BarChartOptions();
+
+		options.Interaction.Mode = InteractionMode.Index;
+
+		options.Plugins.Title.Text = "Revenues / Expenses " + year;
+		options.Plugins.Title.Display = true;
+		options.Plugins.Title.Font.Size = 20;
+
+		options.Responsive = true;
+
+		options.Scales.X.Title.Text = "Months";
+		options.Scales.X.Title.Display = true;
+
+		options.Scales.Y.Title.Text = "Amount";
+		options.Scales.Y.Title.Display = true;
+
+		if (isUpdated)
+		{
+			await barChart.UpdateAsync(data, options);
+		}
+		else
+		{
+			await barChart.InitializeAsync(data, options);
+		}
+
+	}
+
+	private async Task GetIncomeTotal(int year)
+	{
+		DateTime endDate;
+		DateTime startDate;
+		double total = 0;
+		incomeAmount.Clear();
+
+		for (int i = 1; i < 13; i++)
+		{
+			endDate = new DateTime(year, i, DateTime.DaysInMonth(year, i));
+			startDate = new DateTime(year, i, 1);
+
+			incomeList = await IncomeService.GetAllIncomeByDateAsync(startDate, endDate);
+
+			if (incomeList.Count > 0)
+			{
+				total = Convert.ToDouble((from f in incomeList
+												select f.InComeAmount).Sum());
+			}
+			incomeAmount.Add(total);
+			total = 0;
+		}
+	}
+
+	private async Task GetDebtTotal(int year)
+	{
+		DateTime endDate;
+		DateTime startDate;
+		double total = 0;
+		debtAmount.Clear();
+
+		for (int i = 1; i < 13; i++)
+		{
+			endDate = new DateTime(year, i, DateTime.DaysInMonth(year, i));
+			startDate = new DateTime(year, i, 1);
+
+			debtList = await DebtService.GetAllDebtByDateAsync(startDate, endDate);
+
+			if (debtList.Count > 0)
+			{
+				total = Convert.ToDouble((from f in debtList
+												select f.DebtAmount).Sum());
+			}
+			debtAmount.Add(total);
+			total = 0;
+		}
+	}
+	private async Task GetDataBarData(ChangeEventArgs e)
+	{
+		if (e.Value != null)
+		{
+			await RenderBarChartAsync(Convert.ToInt32(e.Value), true);
+			await GetPieChart(Convert.ToInt32(e.Value), true);
+		}
+	}
+}

@@ -1,0 +1,130 @@
+﻿@inject NavigationManager NavigationManager
+@page "/incomedebtsource/{DebtOrInCome:int}"
+@using MauiAppBlazor3.Models
+@using MauiAppBlazor3.Services
+@inject IInComeDebtItemService InComeDebtItemService
+
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<h3>Add Category</h3>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<input name="incomeSourceName" @bind="model.Name" placeholder="Ente category name" type="text" class="form-control" />
+
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="form-check">
+			<input class="form-check-input" type="checkbox" value="" id="checkIncome" @bind="model.IsIncome">
+			<label class="form-check-label" for="checkIncome">
+				Revenue
+			</label>
+		</div>
+		<div class="form-check">
+			<input class="form-check-input" type="checkbox" value="" id="checkDebt" @bind="model.IsDebt">
+			<label class="form-check-label" for="checkDebt">
+				Expense
+			</label>
+		</div>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<button class="btn btn-outline-success" type="button" @onclick="NavigateIncomeSourcePage">Save</button>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<p style="color:red">
+			@ValidationErrorMessage1
+		</p>
+		<p style="color:red">
+			@ValidationErrorMessage2
+		</p>
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public int DebtOrInCome { get; set; }
+	private string? ValidationErrorMessage1;
+	private string? ValidationErrorMessage2;
+	
+	IncomeDebtItemModel model = new IncomeDebtItemModel();
+
+	protected override void OnInitialized()
+	{
+		if (DebtOrInCome == 0)
+		{
+			model.IsDebt = false;
+			model.IsIncome = true;
+		}
+		else if (DebtOrInCome == 1)
+		{
+			model.IsDebt = true;
+			model.IsIncome = false;
+		}
+		else if (DebtOrInCome == 2)
+		{
+			model.IsDebt = false;
+			model.IsIncome = false;
+		}
+
+	}
+
+
+	private async Task NavigateIncomeSourcePage()
+	{
+		if (await Validate())
+		{
+			await InComeDebtItemService.Insert(model);
+
+			if (DebtOrInCome == 0)
+			{
+				NavigationManager.NavigateTo("/incomeAdd");
+			}
+			else if (DebtOrInCome == 1)
+			{
+				NavigationManager.NavigateTo("/debtAdd");
+			}
+			else if (DebtOrInCome == 2)
+			{
+				NavigationManager.NavigateTo("/incomeDebtItems");
+			}
+		}
+
+	}
+
+	private async Task<bool> Validate()
+	{
+		ValidationErrorMessage1 = string.Empty;
+		ValidationErrorMessage2 = string.Empty;
+		bool isValidate = true;
+
+		if (string.IsNullOrEmpty(model.Name))
+		{
+			ValidationErrorMessage1 = "*Plesase enter the category name";
+			isValidate = false;
+		}
+		else
+		{
+			var alreadyTakenName = await InComeDebtItemService.GetByName(model.Name);
+			if (alreadyTakenName != null)
+			{
+				ValidationErrorMessage1 = "This category name had been used before";
+				isValidate = false;
+			}
+		}
+
+		if (!model.IsIncome && !model.IsDebt)
+		{
+			ValidationErrorMessage2 = "*You must select at least one of the Income or Expense sections.";
+			isValidate = false;
+		}
+
+		return isValidate;
+	}
+}

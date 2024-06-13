@@ -1,0 +1,180 @@
+﻿@page "/incomelist"
+@using MauiAppBlazor3.Models
+@using MauiAppBlazor3.Services
+@inject IIncomeService IncomeService
+@inject IInComeDebtItemService IncomeDebtItemService
+
+<div class="grid text-end">
+	<div class="g-col-6">
+		<a href="/incomeAdd" class="btn btn-primary">Add</a>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<h3>Revenues</h3>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group mb-3">
+			<InputDate class="form-control" @bind-Value="@date1"></InputDate>
+			<InputDate class="form-control" @bind-Value="@date2"></InputDate>
+			<button type="button" class="btn btn-link" @onclick="SearchDataAll">
+				Search
+			</button>
+		</div>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group">
+			<select class="form-select" id="inputGroupSelect04" @onchange="SearchData">
+				<option value="0" selected>Search...</option>
+				@foreach (var item in itemSourceList)
+				{
+					<option value="@item.Id">@item.Name</option>
+				}
+
+			</select>
+
+		</div>
+
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+			<div class="table-responsive">
+		<table class="table table table-striped">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Category</th>
+					<th>Amount</th>
+					<th></th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+
+				@foreach (var item in model)
+				{
+					<tr>
+						<td>@item.InComeDate.ToShortDateString()</td>
+						<td>@item.IncomeDebtItemModel?.Name</td>
+						<td>@item.InComeAmount</td>
+						<td>
+							<a class="btn btn-link" href="/incomeedit/@item.Id">
+								<Icon Name="IconName.PencilSquare" Color="IconColor.Success" />
+							</a>
+						</td>
+						<td>
+							<button type="button" class="btn btn-link" @onclick="()=>DeleteItem(item.Id)">
+								<Icon Name="IconName.Trash3" Color="IconColor.Danger" />
+						</button></td>
+					</tr>
+				}
+			</tbody>
+			<tfoot>
+				<tr>
+					<td></td>
+					<td style="font-weight: bold;"> Total:</td>
+					<td style="font-weight: bold;">@totalIncome</td>
+					<td></td>
+					<td></td>
+				</tr>
+			</tfoot>
+		</table>
+		</div>
+	</div>
+</div>
+
+
+@code {
+	private List<IncomeModel> model = new();
+	private List<IncomeDebtItemModel> itemSourceList = new();
+
+	private DateTime date1 = DateTime.Now.AddDays(-30);
+	private DateTime date2 = DateTime.Now;
+	private int selectedItem = 0;
+	decimal totalIncome = 0;
+
+	protected override async Task OnInitializedAsync()
+	{
+		model = await IncomeService.GetAllIncomeByDateAsync(date1, date2);
+		itemSourceList = await IncomeDebtItemService.GetAllIncomeSourceAsync();
+		CalculateTotal();
+	}
+
+	private async Task DeleteItem(int id)
+	{
+		var answer = await App.Current.MainPage.DisplayAlert(
+		"Alert",
+		"Are you sure you want to delete it?",
+		"Yes",
+		"No");
+
+		if (answer)
+		{
+			IncomeModel incomeModel = await IncomeService.GetById(id);
+
+			if (incomeModel != null)
+			{
+				var effectedRow = await IncomeService.Delete(incomeModel);
+
+				if (effectedRow == 1)
+				{
+					//model = await IncomeService.GetAll();
+					await SearchDataAll();
+				}
+				else
+				{
+					await App.Current.MainPage.DisplayAlert(
+							"Alert",
+							"An error has occurred. Please contact the system administrator",
+							"Ok");
+				}
+			}
+			else
+			{
+				await App.Current.MainPage.DisplayAlert(
+							"Alert",
+							"An error has occurred. Please contact the system administrator",
+							"Ok");
+			}
+		}
+	}
+
+	private async Task SearchData(ChangeEventArgs e)
+	{
+		if (e.Value != null)
+		{
+			selectedItem = Convert.ToInt32(e.Value);
+			model = await IncomeService.GetAllIncomeByDateAsync(date1, date2);
+
+			if (selectedItem != 0)
+			{
+				model = model.Where(x => x.IncomeDebtItemModel?.Id == selectedItem).ToList();
+			}
+			CalculateTotal();
+		}
+	}
+
+	private async Task SearchDataAll()
+	{
+		model = await IncomeService.GetAllIncomeByDateAsync(date1, date2);
+		if (selectedItem != 0)
+		{
+			model = model.Where(x => x.IncomeDebtItemModel?.Id == selectedItem).ToList();
+		}
+		CalculateTotal();
+	}
+
+	private void CalculateTotal()
+	{
+		totalIncome = 0;
+		model.ForEach(item =>
+		{
+			totalIncome += item.InComeAmount;
+		});
+	}
+}

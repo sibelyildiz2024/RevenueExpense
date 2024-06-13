@@ -1,0 +1,90 @@
+﻿@page "/incomeedit/{Id:int}"
+@using MauiAppBlazor3.Models
+@using MauiAppBlazor3.Services
+@inject IIncomeService IncomeService
+@inject IInComeDebtItemService IncomeDebtItemService
+@inject NavigationManager NavigationManager
+
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<h3>Update Revenue</h3>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<InputDate class="form-control" @bind-Value="model.InComeDate"></InputDate>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group">
+			<select class="form-select" aria-label="Kategori Seçiniz" @bind="model.IncomeDebtItemId">
+				<option value="0" selected>Choose Category</option>
+
+				@foreach (var item in incomeSourceList)
+				{
+					<option value="@item.Id">@item.Name</option>
+				}
+			</select>
+			<button class="btn btn-outline-success" type="button" @onclick="NavigateAddIncomeSourcePage">+</button>
+		</div>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group">
+			<input type="number" class="form-control" @bind="model.InComeAmount">
+			<span class="input-group-text">$</span>
+			<span class="input-group-text">0,00</span>
+			<button class="btn btn-outline-success" type="button" @onclick="UpdateData">Update</button>
+		</div>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<p style="color:red">@ValidationError</p>
+	</div>
+</div>
+@code {
+	[Parameter]
+	public int Id { get; set; }
+
+	IncomeModel model = new();
+	List<IncomeDebtItemModel> incomeSourceList = new();
+	public string? ValidationError;
+
+	protected async override Task OnInitializedAsync()
+	{
+		model = await IncomeService.GetById(Id);
+		incomeSourceList = await IncomeDebtItemService.GetAllIncomeSourceAsync();
+	}
+
+	private async Task UpdateData()
+	{
+		if (model.IncomeDebtItemId != 0 && model.InComeAmount != 0)
+		{
+			var affectedRow = await IncomeService.Update(model);
+
+			if (affectedRow == 1)
+			{
+				NavigationManager.NavigateTo("/incomelist");
+			}
+			else
+			{
+				await App.Current.MainPage.DisplayAlert(
+				"Alert",
+				"An error has occurred. Please contact the system administrator",
+				"Ok");
+			}
+		}
+		else
+		{
+			ValidationError = "*Please enter the Amount field and chose the Category.";
+		}
+	}
+
+	private void NavigateAddIncomeSourcePage()
+	{
+		NavigationManager.NavigateTo("/incomedebtsource/0");
+	}
+}

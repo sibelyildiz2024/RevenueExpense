@@ -1,0 +1,87 @@
+﻿@page "/debtedit/{Id:int}"
+@using MauiAppBlazor3.Models
+@using MauiAppBlazor3.Services
+@inject IDebtService DebtService
+@inject IInComeDebtItemService IncomeDebtItemService
+@inject NavigationManager NavigationManager
+
+<div class="row mb-3">
+	<div class="col-10">
+		<h3>Update Expense</h3>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<InputDate class="form-control" @bind-Value="model.DebtDate"></InputDate>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group">
+			<select class="form-select" aria-label="Default select example" @bind="model.IncomeDeptId">
+				<option selected>Choose Category</option>
+				@foreach (var item in debtSourceItemList)
+				{
+					<option value="@item.Id">@item.Name</option>
+				}
+			</select>
+			<button class="btn btn-outline-success" type="button" @onclick="NavigateAddDebtSourcePage">+</button>
+		</div>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<div class="input-group">
+			<input type="number" class="form-control" @bind-value="model.DebtAmount">
+			<span class="input-group-text">$</span>
+			<span class="input-group-text">0,00</span>
+			<button class="btn btn-outline-success" type="button" @onclick="UpdateData">Update</button>
+		</div>
+	</div>
+</div>
+<div class="row mb-3">
+	<div class="col-sm-10">
+		<p style="color:red">@ValidationError</p>
+	</div>
+</div>
+@code {
+	[Parameter]
+	public int Id { get; set; }
+	private DebtModel model = new();
+	List<IncomeDebtItemModel> debtSourceItemList = new();
+	public string? ValidationError;
+
+	protected override async Task OnInitializedAsync()
+	{
+		model = await DebtService.GetById(Id);
+		debtSourceItemList = await IncomeDebtItemService.GetAllDebtSourceAsync();
+	}
+	private void NavigateAddDebtSourcePage()
+	{
+		NavigationManager.NavigateTo("/incomedebtsource/1");
+	}
+
+	private async Task UpdateData()
+	{
+		if (model.IncomeDeptId != 0 && model.DebtAmount != 0)
+		{
+			var updatedData = await DebtService.Update(model);
+
+			if (updatedData == 1)
+			{
+				NavigationManager.NavigateTo("/debtlist");
+			}
+			else
+			{
+				await App.Current.MainPage.DisplayAlert(
+				"Alert",
+				"An error has occurred. Please contact the system administrator",
+				"Ok");
+			}
+		}
+		else
+		{
+			ValidationError = "*Please enter the Amount field and chose the Category.";
+		}
+	}
+}
